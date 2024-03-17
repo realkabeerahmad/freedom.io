@@ -16,12 +16,7 @@ const LogHandler = (filename, mode) => {
     }
     outputLog = fs.createWriteStream(logFilePath, { flags: "w" }); // Create a new file if exists
   } else if (mode === "D") {
-    if (fs.existsSync(logFilePath))
-      outputLog = fs.createWriteStream(logFilePath, {
-        flags: "w",
-      });
-    // Create a new file if mode is invalid
-    else outputLog = fs.createWriteStream(logFilePath, { flags: "a" }); // Append to existing file
+    outputLog = fs.createWriteStream(logFilePath, { flags: "a" }); // Append to existing file
   } else {
     outputLog = fs.createWriteStream(logFilePath, { flags: "w" }); // Create a new file if mode is invalid
   }

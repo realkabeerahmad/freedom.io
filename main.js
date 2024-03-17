@@ -16,12 +16,10 @@ const logger = new Logger(outputLog, process.env.LOG_MODE || "D");
 app.use(express.json());
 app.use(express.urlencoded({ extended: "Y" }));
 app.use(cors());
-app.use(express.static(path.join(__dirname + "/Assets")));
+app.use(express.static(path.join(__dirname, "src", "public", "assets")));
 //////////////////////////////////////////////////
 app.get("/", (req, res) => {
-  res.send(
-    "<div style><h1>PETHUB.com</h1><p>Hello this is pethub.com api please refer to the API documentation for details</p>"
-  );
+  res.sendFile(path.join(__dirname, "/src/public/serviceup.html"));
 });
 //////////////////////////////////////////////////
 app.use(v1);
