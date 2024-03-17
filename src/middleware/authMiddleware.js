@@ -1,10 +1,17 @@
 // src/middleware/authMiddleware.js
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
+const LogHandler = require("../util/loghandler");
+const Logger = require("../util/logger");
 
+const outputLog = LogHandler(
+  process.env.LOG_MODE === "D" ? "dev" : "root",
+  process.env.LOG_MODE || "D"
+);
+const logger = new Logger(outputLog, process.env.LOG_MODE || "D");
 const authenticateToken = (req, res, next) => {
   const token = req.header("Authorization");
-
+  logger.debug("Request Received for Authorization");
   if (!token) {
     return res.status(401).json({ error: "Unauthorized - Missing Token" });
   }
@@ -17,6 +24,11 @@ const authenticateToken = (req, res, next) => {
       "SELECT * FROM USER_SESSIONS WHERE USER_ID = $1 AND TOKEN = $2 ORDER BY SESSION_ID DESC",
       [user.userId, token.split(" ")[1]]
     );
+    logger.debug("Getting Sessions from the DB");
+    const now = new Date();
+    logger.debug(`Current Time ${now}`);
+    logger.debug(`Session Time ${sessions[0]?.session_time}`);
+    logger.debug(`Validation ${sessions[0]?.session_time < now}`);
 
     if (sessions.length > 0 && sessions[0]?.session_time < new Date()) {
       if (!sessions[0]?.is_expired)

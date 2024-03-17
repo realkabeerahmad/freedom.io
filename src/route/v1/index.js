@@ -5,9 +5,9 @@ const userRoutes = require("./user.route");
 const authenticateToken = require("../../middleware/authMiddleware");
 const { login } = require("../../controller/v1/user.controller");
 //////////////////////////////////////////////////
-if (process.env.LOG_MODE === "D") {
+if (process.env.API_MODE === "D") {
   router.use("/api/v1/dev/users", userRoutes);
-} else if (process.env.LOG_MODE === "P") {
+} else if (process.env.API_MODE === "P") {
   router.use("/api/v1/users", authenticateToken, userRoutes);
 }
 router.use("/api/v1/login", login);

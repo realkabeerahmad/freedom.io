@@ -2,10 +2,7 @@ const db = require("../../config/db");
 const LogHandler = require("../../util/loghandler");
 const Logger = require("../../util/logger");
 const bcrypt = require("bcrypt");
-const dotenv = require("dotenv");
-const User = require("../../model/v1/user");
 const generateToken = require("../../util/authUtils");
-dotenv.config();
 
 const outputLog = LogHandler(
   process.env.LOG_MODE === "D" ? "dev" : "root",
@@ -101,7 +98,9 @@ async function createUser(req, res) {
     const generatedPassword = generatePassword(); // Assuming generatePassword returns an object with `password` property
     logger.info(
       `Generated Password Response: ${
-        (generatedPassword.res, generatedPassword.desc)
+        (generatedPassword.res,
+        generatedPassword.desc,
+        generatedPassword.password)
       }`
     );
 
@@ -129,7 +128,7 @@ async function createUser(req, res) {
     );
 
     logger.info("User saved to database");
-    res.status(201).json(newUserQuery.rows[0]);
+    res.status(201).json(newUserQuery);
   } catch (err) {
     logger.error(err);
     res.status(500).json({ message: "Internal Server Error" });
@@ -151,21 +150,10 @@ function generatePassword(length = 10) {
   };
 }
 
-async function getUsers(req, res) {
-  try {
-    const users = await User.User.find();
-    logger.info(`Returning All Users -> ${JSON.stringify(users)}`);
-    res.status(200).json({ message: "Returning All Users", data: users });
-  } catch (err) {
-    logger.error(err);
-    res.status(500).json({ message: err });
-  }
-}
-
 async function login(req, res) {
   const { user_id, password } = req.body;
   logger.info("Going to execute the login API");
-  logger.debug("Data Received in request -> ", user_id, password);
+  logger.debug(`Data Received in request -> , ${user_id}, ${password}`);
   try {
     logger.info("Retrieve the latest session for the user");
     const sessions = await db.query(
@@ -192,18 +180,20 @@ async function login(req, res) {
       "SELECT user_id, role_id, enc_password FROM users WHERE user_id = $1",
       [user_id]
     );
-    logger.debug("User Found in DB ->", user);
+    logger.debug(`User Found in DB -> ${JSON.stringify(user)}`);
     if (!user || user.length === 0) {
       return res.status(401).json({ error: "Invalid user_id" });
     }
 
     const userDetails = user[0];
+    logger.debug(`User DETAILS -> ${JSON.stringify(userDetails.enc_password)}`);
 
     // Compare passwords
-    const passwordMatch = bcrypt.compareSync(
+    const passwordMatch = await bcrypt.compare(
       password,
       userDetails.enc_password
     );
+    logger.debug(`Password Matched -> ${JSON.stringify(passwordMatch)}`);
 
     if (!passwordMatch) {
       return res.status(401).json({ error: "Invalid password" });
@@ -238,6 +228,5 @@ async function login(req, res) {
 module.exports = {
   createUser,
   createRole,
-  getUsers,
   login,
 };

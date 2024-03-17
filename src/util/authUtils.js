@@ -5,6 +5,7 @@ function generateToken(user) {
   // Assuming user has an id and other relevant data
   const payload = {
     userId: user.user_id,
+    roleID: user.role_id,
     // Add other relevant data to the payload
   };
 
