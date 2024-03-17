@@ -1,0 +1,15 @@
+{
+  "name": "freedom.io",
+  "version": "1.0.0",
+  "description": "Freedom Network",
+  "main": "main.js",
+  "scripts": {
+    "test": "nodemon main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "freedom.io"
+  },
+  "author": "",
+  "license": "ISC"
+}
