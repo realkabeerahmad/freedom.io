@@ -7,28 +7,28 @@ class Logger {
 
   info(message) {
     const date = new Date().toISOString();
-    this.consoler.log(`[${date}] [INFO] [${message}]`);
+    this.consoler.log(`[${date}] [INFO] ${message}`);
   }
 
   exception(message) {
     const date = new Date().toISOString();
-    this.consoler.log(`[${date}] [EXCEPTION] [${message}]`);
+    this.consoler.log(`[${date}] [EXCEPTION] ${message}`);
   }
 
   warn(message) {
     const date = new Date().toISOString();
-    this.consoler.log(`[${date}] [WARN] [${message}]`);
+    this.consoler.log(`[${date}] [WARN] ${message}`);
   }
 
   error(message) {
     const date = new Date().toISOString();
-    this.consoler.error(`[${date}] [ERROR] [${message}]`);
+    this.consoler.error(`[${date}] [ERROR] ${message}`);
   }
 
   debug(message) {
     if (this.mode === "D") {
       const date = new Date().toISOString();
-      this.consoler.log(`[${date}] [DEBUG] [${message}]`);
+      this.consoler.log(`[${date}] [DEBUG] ${message}`);
     }
   }
 }

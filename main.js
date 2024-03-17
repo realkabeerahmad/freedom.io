@@ -14,7 +14,7 @@ const outputLog = LogHandler("dev", process.env.LOG_MODE || "D");
 const logger = new Logger(outputLog, process.env.LOG_MODE || "D");
 //////////////////////////////////////////////////
 app.use(express.json());
-app.use(express.urlencoded({ extended: "Y" }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.use(express.static(path.join(__dirname, "src", "public", "assets")));
 //////////////////////////////////////////////////

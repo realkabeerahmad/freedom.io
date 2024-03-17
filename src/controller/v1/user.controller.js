@@ -7,7 +7,10 @@ const User = require("../../model/v1/user");
 const generateToken = require("../../util/authUtils");
 dotenv.config();
 
-const outputLog = LogHandler("dev", process.env.LOG_MODE || "D");
+const outputLog = LogHandler(
+  process.env.LOG_MODE === "D" ? "dev" : "root",
+  process.env.LOG_MODE || "D"
+);
 const logger = new Logger(outputLog, process.env.LOG_MODE || "D");
 // Register route for Creating a new user
 
@@ -62,8 +65,8 @@ async function createRole(req, res) {
 
 async function createUser(req, res) {
   try {
-    const userData = ({
-      username,
+    const {
+      user_id,
       email,
       firstname,
       lastname,
@@ -72,50 +75,64 @@ async function createUser(req, res) {
       phone,
       mobile,
       address,
-      role,
-    } = req.body);
-    logger.info(`Data Received in Request -> ${JSON.stringify(userData)}`);
-    logger.info(`GOING to check user availability in Database`);
-    const existingUser = await User.User.findOne({
-      username: userData.username,
-    });
+      role_id,
+    } = req.body;
 
-    if (existingUser) {
-      logger.info(`User with username: ${userData.username} already exists`);
+    logger.info(`Data Received in Request -> ${JSON.stringify(req.body)}`);
+    logger.info("GOING to check user availability in Database");
+
+    // Check if user with the same user_id already exists
+    const existingUserQuery = await db.query(
+      "SELECT * FROM users WHERE user_id = $1",
+      [user_id]
+    );
+    logger.debug(JSON.stringify(existingUserQuery));
+    if (existingUserQuery?.length > 0) {
+      logger.info(`User with user_id: ${user_id} already exists`);
       return res.status(400).json({
         status: "400",
-        message: `User with username: ${userData.username} already exists`,
+        message: `User with user_id: ${user_id} already exists`,
       });
     }
 
-    logger.debug(
-      `Going to call generatePasswordAPI to generate Password for the ${userData.username}`
+    logger.info(
+      `Going to call generatePasswordAPI to generate Password for the ${user_id}`
     );
     const generatedPassword = generatePassword(); // Assuming generatePassword returns an object with `password` property
-    logger.debug(
-      `Generated Password Reponse: ${
+    logger.info(
+      `Generated Password Response: ${
         (generatedPassword.res, generatedPassword.desc)
       }`
     );
 
-    // Generating Salt using genSaltSync function with 10 rounds
+    // Generate salt and hash password
     const salt = bcrypt.genSaltSync(10);
     const hashedPassword = bcrypt.hashSync(generatedPassword.password, salt);
-    logger.debug(`Hashed Password: ${hashedPassword}`);
+    logger.info(`Hashed Password: ${hashedPassword}`);
 
-    const newUser = new User.User({
-      ...userData,
-      enc_password: hashedPassword,
-    });
-    logger.debug(`Created User Object: ${newUser}`);
+    // Insert new user into the database
+    const newUserQuery = await db.query(
+      "INSERT INTO users (user_id, email, firstname, lastname, gender, dob, phone, mobile, address, role_id, enc_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
+      [
+        user_id,
+        email,
+        firstname,
+        lastname,
+        gender,
+        dob,
+        phone,
+        mobile,
+        address,
+        role_id,
+        hashedPassword,
+      ]
+    );
 
-    await newUser.save();
-    logger.debug(`User saved to database`);
-
-    res.status(201).json(newUser);
+    logger.info("User saved to database");
+    res.status(201).json(newUserQuery.rows[0]);
   } catch (err) {
     logger.error(err);
-    res.status(500).json({ message: err });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 }
 
@@ -147,9 +164,10 @@ async function getUsers(req, res) {
 
 async function login(req, res) {
   const { user_id, password } = req.body;
-
+  logger.info("Going to execute the login API");
+  logger.debug("Data Received in request -> ", user_id, password);
   try {
-    // Retrieve the latest session for the user
+    logger.info("Retrieve the latest session for the user");
     const sessions = await db.query(
       "SELECT * FROM user_sessions WHERE user_id = $1 ORDER BY session_id DESC LIMIT 1",
       [user_id]
@@ -160,27 +178,29 @@ async function login(req, res) {
       sessions[0]?.session_time > new Date() &&
       !sessions[0]?.is_expired
     ) {
+      logger.info("User already logged in");
       return res
         .status(200)
         .json({ message: "User already logged in", session: sessions[0] });
     }
 
+    logger.debug("No user session found going to Authenticate user");
     const session_id = sessions[0]?.session_id;
 
-    // Find user by username
+    // Find user by user_id
     const user = await db.query(
       "SELECT user_id, role_id, enc_password FROM users WHERE user_id = $1",
       [user_id]
     );
-
+    logger.debug("User Found in DB ->", user);
     if (!user || user.length === 0) {
-      return res.status(401).json({ error: "Invalid username" });
+      return res.status(401).json({ error: "Invalid user_id" });
     }
 
     const userDetails = user[0];
 
     // Compare passwords
-    const passwordMatch = await bcrypt.compare(
+    const passwordMatch = bcrypt.compareSync(
       password,
       userDetails.enc_password
     );
@@ -221,331 +241,3 @@ module.exports = {
   getUsers,
   login,
 };
-
-//   // Generating Salt using genSaltSync function with 10 rounds
-//   const salt = bcrypt.genSaltSync(10);
-//   // Check if email already exist in DB
-//   try {
-//     User.findOne({ username: username }, (err, user) => {
-//       if (user) {
-//         res.json({ status: "failed", message: "User Already Exist" });
-//       } else if (err) {
-//         res.json({ status: "failed", message: "Server Error" });
-//       } else {
-//         // Creating a user object to save in database
-//         const user = new User({
-//           name: firstName + " " + lastName,
-//           email,
-//           password,
-//           Image: "https://i.ibb.co/Lk9vMV2/newUser.png",
-//         });
-//         // Hashing users password
-//         bcrypt.hash(user.password, salt, null, async (err, hash) => {
-//           if (err) {
-//             throw Error(err.message);
-//           }
-//           // Storing HASH Password in user object
-//           user.password = hash;
-//           // Storing user in our Database
-//           await user
-//             .save()
-//             .then((result) => {
-//               SendOtpVerificationEmail(result, res);
-//             })
-//             .catch(() => {
-//               res.json({ status: "failed", message: "Unable to Registered" });
-//             });
-//         });
-//       }
-//     });
-//   } catch (error) {
-//     res.json({ status: "failed", message: error.message });
-//   }
-// };
-
-// // Show User route
-// router.post("/showUser", (req, res) => {
-//   const { _id } = req.body;
-//   try {
-//     User.findById({ _id }, (err, user) => {
-//       if (user) {
-//         res.status(200).send({
-//           status: "success",
-//           message: "User updated successfully",
-//           user: user,
-//         });
-//       } else {
-//         res.status(200).send({
-//           status: "failed",
-//           message: "User not updated",
-//         });
-//       }
-//     });
-//   } catch (error) {
-//     res.json({ status: "failed", error: error.message });
-//   }
-// });
-
-// // Show All Users route
-// router.get("/showAllUser", (req, res) => {
-//   try {
-//     User.find({}, (err, users) => {
-//       if (users) {
-//         res.status(200).send({
-//           status: "success",
-//           message: "All Users sent successfully",
-//           users: users,
-//         });
-//       } else {
-//         res.status(200).send({
-//           status: "failed",
-//           message: "User not updated",
-//         });
-//       }
-//     });
-//   } catch (error) {
-//     res.json({ status: "failed", error: error.message });
-//   }
-// });
-
-// // Login route to allow registered users to login
-// router.post("/login", (req, res) => {
-//   // Getting all required data from request body
-//   const { email, password } = req.body;
-//   // Checking if User exist
-//   try {
-//     User.findOne({ email: email }, (err, user) => {
-//       if (user) {
-//         if (user.verified) {
-//           // Decrypting and comparing Password
-//           const validPassword = bcrypt.compareSync(password, user.password);
-//           if (validPassword) {
-//             res.send({
-//               status: "success",
-//               message: "Valid Password",
-//               user: user,
-//             });
-//           } else {
-//             res.send({
-//               status: "failed",
-//               message: "Invalid Password",
-//               user: user,
-//             });
-//           }
-//         } else {
-//           res.send({
-//             status: "pending",
-//             message: "Please Verify Your Email",
-//             user: user,
-//           });
-//         }
-//       } else {
-//         res.send({ status: "failed", message: "User do not Exist" });
-//       }
-//     });
-//   } catch (error) {
-//     res.json({ status: "failed", error: error.message });
-//   }
-// });
-
-// // Verify OTP route
-// router.post("/verifyOTP", async (req, res) => {
-//   try {
-//     // Get data from Request body
-//     const { userID, otp } = req.body;
-//     // Check OTP Details
-//     if (!userID || !otp) {
-//       throw Error("Empty otp Details are not allowed");
-//     } else {
-//       // Find OTP
-//       const userVerificationRecords = await userOtpVerification.find({
-//         userID,
-//       });
-//       if (userVerificationRecords.length <= 0) {
-//         res.send({
-//           status: "failed",
-//           message:
-//             "Account record doesn't exist or has been verified already. Please Signup or Login.",
-//         });
-//       } else {
-//         const { expiredAt } = userVerificationRecords[0];
-//         const hashedOTP = userVerificationRecords[0].otp;
-//         // Check if Expired
-//         if (expiredAt < Date.now()) {
-//           await userOtpVerification.deleteMany({ userID });
-//           res.send({
-//             status: "failed",
-//             message: "Code has Expired. Please request again.",
-//           });
-//         } else {
-//           // Check OTP
-//           const validotp = bcrypt.compareSync(otp, hashedOTP);
-//           if (!validotp) {
-//             res.send({
-//               status: "failed",
-//               message: "Invalid OTP please check your Email.",
-//             });
-//           } else {
-//             // Update User Status
-//             await User.findByIdAndUpdate(
-//               { _id: userID },
-//               { verified: true }
-//             ).then(() => {
-//               userOtpVerification.deleteMany({ userID }).then(() => {
-//                 res.json({
-//                   status: "success",
-//                   message: "User Email Verified successfully.",
-//                 });
-//               });
-//             });
-//           }
-//         }
-//       }
-//     }
-//   } catch (error) {
-//     res.json({
-//       status: "failed",
-//       message: error.message,
-//     });
-//   }
-// });
-// // Add User Image
-// router.post("/updateProfileImage", (req, res) => {
-//   const { userId, url } = req.body;
-//   try {
-//     User.findByIdAndUpdate({ _id: userId }, { Image: url })
-//       .then(() => {
-//         res.status(200).json({
-//           status: "success",
-//           message: "Image Added successfully",
-//           data: userId,
-//         });
-//       })
-//       .catch((err) => {
-//         throw Error("Unable to update Image" + err.message);
-//       });
-//   } catch (error) {
-//     res.json({
-//       status: "failed",
-//       error: error.message,
-//     });
-//   }
-// });
-
-// // Re-send OTP route
-// router.post("/reSendOtpVerificatioCode", async (req, res) => {
-//   try {
-//     // Get Data from Request Body
-//     let { userID, email } = req.body;
-//     //Check if Data is Correct
-//     if (!userID || !email) {
-//       throw Error("Empty user Details are not allowed");
-//     } else {
-//       // Delete old OTP Generated
-//       await userOtpVerification.deleteMany({ userID });
-//       // Call Send OTP Function
-//       SendOtpVerificationEmail({ _id: userID, email }, res);
-//     }
-//   } catch (error) {
-//     res.send({
-//       status: "failed",
-//       message: error.message,
-//     });
-//   }
-// });
-
-// // Send OTP Function
-// const SendOtpVerificationEmail = async ({ _id, email }, res) => {
-//   try {
-//     // Generated OTP
-//     const otp = Math.floor(1000 + Math.random() * 9000);
-//     // Mail Options
-//     const mailOptions = {
-//       from: process.env.USER,
-//       to: email,
-//       subject: "Verify your Email",
-//       text: "OTP Verification Email",
-//       html: `
-//       <h2>Hello and Welcome to <span style="color:#e92e4a;">pethub.com</span></h2>
-//       <p>Your OTP verification code is <span style="color:#e92e4a; font-size:20px;">${otp}</span></p>.
-//       <p>Enter this code in our website or mobile app to activate your account.</p>
-//       <br/>
-//       <p>If you have any questions, send us an email <span style="color:blue;">support.pethub@zohomail.com</span>.</p>
-//       <br/>
-//       <p>We’re glad you’re here!</p>
-//       <p style="color:#e92e4a;">The PETHUB team</p>`,
-//     };
-
-//     //hash the OTP
-//     const saltRounds = 10;
-
-//     // generating salt
-//     const salt = bcrypt.genSaltSync(saltRounds);
-
-//     // getting Hashed OTP
-//     const hashedOTP = bcrypt.hashSync(otp, salt);
-
-//     //OTP Verification DB object
-//     const newOtpVerfication = new userOtpVerification({
-//       userID: _id,
-//       otp: hashedOTP,
-//       createdAt: Date.now(),
-//       expiredAt: Date.now() + 3600000,
-//     });
-//     await newOtpVerfication.save();
-//     transporter.sendMail(mailOptions, (err, info) => {
-//       // console.log(err);
-//       if (err) {
-//         User.findByIdAndDelete({ _id: _id })
-//           .then(() => {
-//             return res.send({
-//               status: "failed",
-//               message: "Not able to send OTP" + err.message,
-//             });
-//           })
-//           .catch((err) => {
-//             return res.send({
-//               status: "failed",
-//               message: "Server Error" + err.message,
-//             });
-//           });
-//       } else {
-//         return res.send({
-//           status: "pending",
-//           message: "Verification OTP email sent.",
-//           data: {
-//             userId: _id,
-//             email,
-//           },
-//         });
-//       }
-//     });
-//   } catch (error) {
-//     res.json({
-//       status: "failed",
-//       message: "error message",
-//     });
-//   }
-// };
-
-// // Expoting Routes
-// module.exports = router;
-
-// const Register = (req, res) => {
-//   const {
-//     first_name,
-//     middle_name,
-//     last_name,
-//     email,
-//     mobile,
-//     phone,
-//     gender,
-//     nid,
-//     address1,
-//     address2,
-//     city,
-//     state,
-//     country,
-//     password,
-//   } = req.body;
-// };

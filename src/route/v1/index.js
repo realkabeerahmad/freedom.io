@@ -3,7 +3,13 @@ const express = require("express");
 const router = express.Router();
 const userRoutes = require("./user.route");
 const authenticateToken = require("../../middleware/authMiddleware");
+const { login } = require("../../controller/v1/user.controller");
 //////////////////////////////////////////////////
-router.use("/api/v1/users", authenticateToken, userRoutes);
+if (process.env.LOG_MODE === "D") {
+  router.use("/api/v1/dev/users", userRoutes);
+} else if (process.env.LOG_MODE === "P") {
+  router.use("/api/v1/users", authenticateToken, userRoutes);
+}
+router.use("/api/v1/login", login);
 //////////////////////////////////////////////////
 module.exports = router;
