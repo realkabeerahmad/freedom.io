@@ -1,9 +1,9 @@
 const db = require("../../config/db");
-const LogHandler = require("../../utils/logHandler");
-const Logger = require("../../utils/logger");
+const LogHandler = require("../../util/loghandler");
+const Logger = require("../../util/logger");
 const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
-const User = require("../../models/user");
+const User = require("../../model/user");
 dotenv.config();
 
 const outputLog = LogHandler("dev", process.env.LOG_MODE || "D");
