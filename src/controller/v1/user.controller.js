@@ -3,7 +3,7 @@ const LogHandler = require("../../util/loghandler");
 const Logger = require("../../util/logger");
 const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
-const User = require("../../model/user");
+const User = require("../../model/v1/user");
 dotenv.config();
 
 const outputLog = LogHandler("dev", process.env.LOG_MODE || "D");

@@ -1,4 +1,4 @@
-const db = require("../config/db");
+const db = require("../../config/db");
 const pgp = require("pg-promise")();
 
 // Define the SQL queries to create the schema
