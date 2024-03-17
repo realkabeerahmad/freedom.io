@@ -4,6 +4,7 @@ const Logger = require("../../util/logger");
 const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
 const User = require("../../model/v1/user");
+const generateToken = require("../../util/authUtils");
 dotenv.config();
 
 const outputLog = LogHandler("dev", process.env.LOG_MODE || "D");
@@ -144,10 +145,81 @@ async function getUsers(req, res) {
   }
 }
 
+async function login(req, res) {
+  const { user_id, password } = req.body;
+
+  try {
+    // Retrieve the latest session for the user
+    const sessions = await db.query(
+      "SELECT * FROM user_sessions WHERE user_id = $1 ORDER BY session_id DESC LIMIT 1",
+      [user_id]
+    );
+
+    if (
+      sessions.length > 0 &&
+      sessions[0]?.session_time > new Date() &&
+      !sessions[0]?.is_expired
+    ) {
+      return res
+        .status(200)
+        .json({ message: "User already logged in", session: sessions[0] });
+    }
+
+    const session_id = sessions[0]?.session_id;
+
+    // Find user by username
+    const user = await db.query(
+      "SELECT user_id, role_id, enc_password FROM users WHERE user_id = $1",
+      [user_id]
+    );
+
+    if (!user || user.length === 0) {
+      return res.status(401).json({ error: "Invalid username" });
+    }
+
+    const userDetails = user[0];
+
+    // Compare passwords
+    const passwordMatch = await bcrypt.compare(
+      password,
+      userDetails.enc_password
+    );
+
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Invalid password" });
+    }
+
+    // Generate and send a JWT token
+    const token = generateToken(userDetails);
+
+    // Expire the previous session if it exists
+    if (session_id !== undefined) {
+      await db.query(
+        "UPDATE user_sessions SET is_expired = TRUE WHERE session_id = $1",
+        [session_id]
+      );
+    }
+
+    // Create a new session
+    const newSession = await db.query(
+      "INSERT INTO user_sessions (user_id, token) VALUES ($1, $2) RETURNING *",
+      [user_id, token]
+    );
+    res.status(200).json({
+      message: "User is authorized to access the services",
+      session: newSession[0],
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
 module.exports = {
   createUser,
   createRole,
   getUsers,
+  login,
 };
 
 //   // Generating Salt using genSaltSync function with 10 rounds
