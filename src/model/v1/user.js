@@ -13,7 +13,7 @@ const createUserTable = `
         city VARCHAR(255),
         state VARCHAR(255),
         country VARCHAR(255),
-        role_id VARCHAR(255) REFERENCES roles(role_id),
+        role_id VARCHAR(255) NOT NULL REFERENCES roles(role_id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )

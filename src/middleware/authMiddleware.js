@@ -6,19 +6,25 @@ const Logger = require("../util/logger");
 
 const outputLog = LogHandler(
   process.env.LOG_MODE === "D" ? "dev" : "root",
-  process.env.LOG_MODE || "D"
+  "S" // process.env.LOG_MODE || "D"
 );
-const logger = new Logger(outputLog, process.env.LOG_MODE || "D");
+const logger = new Logger(outputLog, "S"); //process.env.LOG_MODE || "D");
 const authenticateToken = (req, res, next) => {
   const token = req.header("Authorization");
   logger.debug("Request Received for Authorization");
   if (!token) {
-    return res.status(401).json({ error: "Unauthorized - Missing Token" });
+    return res.status(401).json({
+      message: "Access Denied",
+      error: "Unauthorized - Missing Token",
+    });
   }
 
   jwt.verify(token.split(" ")[1], process.env.JWT_SECRET, async (err, user) => {
     if (err) {
-      return res.status(403).json({ error: "Forbidden - Invalid Token" });
+      return res.status(403).json({
+        message: "Access Denied - Please login again",
+        error: "Forbidden - Invalid Token",
+      });
     }
     const sessions = await db.query(
       "SELECT * FROM USER_SESSIONS WHERE USER_ID = $1 AND TOKEN = $2 ORDER BY SESSION_ID DESC",
@@ -36,6 +42,11 @@ const authenticateToken = (req, res, next) => {
           "UPDATE USER_SESSIONS SET IS_EXPIRED = TRUE WHERE SESSION_ID = $1",
           [sessions[0]?.session_id]
         );
+      return res.status(200).json({
+        message: "SESSION TIME OUT PLEASE LOGIN AGAIN",
+        session: sessions[0],
+      });
+    } else if (sessions.length > 0 && sessions[0]?.is_expired) {
       return res.status(200).json({
         message: "SESSION EXPIRED PLEASE LOGGIN AGAIN",
         session: sessions[0],

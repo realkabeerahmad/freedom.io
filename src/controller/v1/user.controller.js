@@ -75,63 +75,84 @@ async function createUser(req, res) {
       role_id,
     } = req.body;
 
+    logger.info(
+      `Role id of the Authorized user -> ${JSON.stringify(req.user.roleID)}`
+    );
+    const AuthRole = await getRole(req.user.roleID, res);
+    const ReqRole = await getRole(role_id, res);
     logger.info(`Data Received in Request -> ${JSON.stringify(req.body)}`);
     logger.info("GOING to check user availability in Database");
+    logger.info(`${JSON.stringify(AuthRole)} \n ${JSON.stringify(ReqRole)}`);
 
-    // Check if user with the same user_id already exists
-    const existingUserQuery = await db.query(
-      "SELECT * FROM users WHERE user_id = $1",
-      [user_id]
-    );
-    logger.debug(JSON.stringify(existingUserQuery));
-    if (existingUserQuery?.length > 0) {
-      logger.info(`User with user_id: ${user_id} already exists`);
-      return res.status(400).json({
-        status: "400",
-        message: `User with user_id: ${user_id} already exists`,
+    if (AuthRole && ReqRole && AuthRole.precidence >= ReqRole.precidence) {
+      // Check if user with the same user_id already exists
+      const existingUserQuery = await db.query(
+        "SELECT * FROM users WHERE user_id = $1",
+        [user_id]
+      );
+      logger.debug(JSON.stringify(existingUserQuery));
+      if (existingUserQuery?.length > 0) {
+        logger.info(`User with user_id: ${user_id} already exists`);
+        return res.status(400).json({
+          status: "400",
+          message: `User with user_id: ${user_id} already exists`,
+        });
+      }
+
+      logger.info(
+        `Going to call generatePasswordAPI to generate Password for the ${user_id}`
+      );
+      const generatedPassword = generatePassword(); // Assuming generatePassword returns an object with `password` property
+      logger.info(`Generated Password Response: ${generatedPassword.password}`);
+
+      // Generate salt and hash password
+      const salt = bcrypt.genSaltSync(10);
+      const hashedPassword = bcrypt.hashSync(generatedPassword.password, salt);
+      logger.info(`Hashed Password: ${hashedPassword}`);
+
+      // Insert new user into the database
+      const newUserQuery = await db.query(
+        "INSERT INTO users (user_id, email, firstname, lastname, gender, dob, phone, mobile, address, role_id, enc_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
+        [
+          user_id,
+          email,
+          firstname,
+          lastname,
+          gender,
+          dob,
+          phone,
+          mobile,
+          address,
+          role_id,
+          hashedPassword,
+        ]
+      );
+
+      logger.info("User saved to database");
+      res.status(201).json(newUserQuery);
+    } else {
+      logger.info(
+        `${req.user.roleID} is not authorized to create user with role: ${role_id}`
+      );
+      res.status(401).json({
+        message: `${req.user.roleID} is not authorized to create user with role: ${role_id}`,
       });
     }
-
-    logger.info(
-      `Going to call generatePasswordAPI to generate Password for the ${user_id}`
-    );
-    const generatedPassword = generatePassword(); // Assuming generatePassword returns an object with `password` property
-    logger.info(
-      `Generated Password Response: ${
-        (generatedPassword.res,
-        generatedPassword.desc,
-        generatedPassword.password)
-      }`
-    );
-
-    // Generate salt and hash password
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = bcrypt.hashSync(generatedPassword.password, salt);
-    logger.info(`Hashed Password: ${hashedPassword}`);
-
-    // Insert new user into the database
-    const newUserQuery = await db.query(
-      "INSERT INTO users (user_id, email, firstname, lastname, gender, dob, phone, mobile, address, role_id, enc_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
-      [
-        user_id,
-        email,
-        firstname,
-        lastname,
-        gender,
-        dob,
-        phone,
-        mobile,
-        address,
-        role_id,
-        hashedPassword,
-      ]
-    );
-
-    logger.info("User saved to database");
-    res.status(201).json(newUserQuery);
   } catch (err) {
     logger.error(err);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+async function getRole(roleID, res) {
+  const role = await db.query("SELECT * FROM ROLES WHERE ROLE_ID = $1", [
+    roleID,
+  ]);
+
+  if (role?.length < 1) {
+    return null;
+  } else {
+    return role[0]; // Return the first role object
   }
 }
 
@@ -186,7 +207,7 @@ async function login(req, res) {
     }
 
     const userDetails = user[0];
-    logger.debug(`User DETAILS -> ${JSON.stringify(userDetails.enc_password)}`);
+    logger.debug(`User DETAILS -> ${JSON.stringify(userDetails)}`);
 
     // Compare passwords
     const passwordMatch = await bcrypt.compare(
@@ -225,8 +246,44 @@ async function login(req, res) {
   }
 }
 
+async function logout(req, res) {
+  try {
+    const { userId } = req.user; // Destructure userId directly from req.user
+    logger.debug(`USER ID RECEIVED IN REQ -> ${userId}`);
+
+    const token = req.header("Authorization");
+    logger.debug(`TOKEN RECEIVED IN REQ -> ${token.split(" ")[1]}`);
+
+    const sessions = await db.query(
+      "SELECT * FROM USER_SESSIONS WHERE USER_ID = $1 AND TOKEN = $2 ORDER BY SESSION_ID DESC",
+      [userId, token.split(" ")[1]]
+    );
+    logger.debug("Getting Sessions from the DB");
+    logger.debug(`SESSIONS FROM DB -> ${JSON.stringify(sessions)}`); // Convert sessions array to string for logging
+
+    if (!sessions[0]?.is_expired) {
+      logger.debug(`SECOND VALIDATION PASSED`);
+      await db.query(
+        "UPDATE USER_SESSIONS SET IS_EXPIRED = TRUE WHERE SESSION_ID = $1",
+        [sessions[0]?.session_id]
+      );
+      logger.debug(`SESSION UPDATED SENDING RESPONSE`);
+      return res.status(200).json({
+        message: "SESSION TIME OUT PLEASE LOGIN AGAIN",
+        session: sessions[0],
+      });
+    } else {
+      return res.status(200).json({ message: "No active session found" });
+    }
+  } catch (error) {
+    logger.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
 module.exports = {
   createUser,
   createRole,
   login,
+  logout,
 };

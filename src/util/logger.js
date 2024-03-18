@@ -4,31 +4,31 @@ class Logger {
     this.mode = mode;
     this.consoler = new console.Console(this.filename, this.filename);
   }
-
+  log(logMessage) {
+    if (this.mode === "D" || this.mode === "P") {
+      const date = new Date().toISOString();
+      this.consoler.log(`[${date}] ${logMessage}`);
+    }
+  }
   info(message) {
-    const date = new Date().toISOString();
-    this.consoler.log(`[${date}] [INFO] ${message}`);
+    this.log(`[INFO] ${message}`);
   }
 
   exception(message) {
-    const date = new Date().toISOString();
-    this.consoler.log(`[${date}] [EXCEPTION] ${message}`);
+    this.log(`[EXCEPTION] ${message}`);
   }
 
   warn(message) {
-    const date = new Date().toISOString();
-    this.consoler.log(`[${date}] [WARN] ${message}`);
+    this.log(`[WARN] ${message}`);
   }
 
   error(message) {
-    const date = new Date().toISOString();
-    this.consoler.error(`[${date}] [ERROR] ${message}`);
+    this.log(`[ERROR] ${message}`);
   }
 
   debug(message) {
     if (this.mode === "D") {
-      const date = new Date().toISOString();
-      this.consoler.log(`[${date}] [DEBUG] ${message}`);
+      this.log(`[DEBUG] ${message}`);
     }
   }
 }
