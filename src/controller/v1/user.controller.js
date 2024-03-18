@@ -11,7 +11,7 @@ const outputLog = LogHandler(
 const logger = new Logger(outputLog, process.env.LOG_MODE || "D");
 // Register route for Creating a new user
 
-async function createRole(req, res) {
+async function createRoleApi(req, res) {
   try {
     const { role_id, name, description, precidence, ordr } = req.body;
 
@@ -60,7 +60,7 @@ async function createRole(req, res) {
   }
 }
 
-async function createUser(req, res) {
+async function createUserApi(req, res) {
   try {
     const {
       user_id,
@@ -171,7 +171,7 @@ function generatePassword(length = 10) {
   };
 }
 
-async function login(req, res) {
+async function loginApi(req, res) {
   const { user_id, password } = req.body;
   logger.info("Going to execute the login API");
   logger.debug(`Data Received in request -> , ${user_id}, ${password}`);
@@ -246,7 +246,7 @@ async function login(req, res) {
   }
 }
 
-async function logout(req, res) {
+async function logoutApi(req, res) {
   try {
     const { userId } = req.user; // Destructure userId directly from req.user
     logger.debug(`USER ID RECEIVED IN REQ -> ${userId}`);
@@ -282,8 +282,8 @@ async function logout(req, res) {
 }
 
 module.exports = {
-  createUser,
-  createRole,
-  login,
-  logout,
+  createUserApi,
+  createRoleApi,
+  loginApi,
+  logoutApi,
 };
