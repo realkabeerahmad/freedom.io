@@ -5,8 +5,8 @@ const LogHandler = require("../util/loghandler");
 const Logger = require("../util/logger");
 
 const outputLog = LogHandler(
-  process.env.LOG_MODE === "D" ? "dev" : "root",
-  "S" // process.env.LOG_MODE || "D"
+  process.env.LOG_MODE === "D" ? "authUtil" : "root",
+  process.env.LOG_MODE || "D"
 );
 const logger = new Logger(outputLog, "S"); //process.env.LOG_MODE || "D");
 const authenticateToken = (req, res, next) => {

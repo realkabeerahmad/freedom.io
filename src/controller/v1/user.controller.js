@@ -144,7 +144,102 @@ async function createUserApi(req, res) {
   }
 }
 
-async function getRole(roleID, res) {
+// Edit Role API
+async function editRoleApi(req, res) {
+  try {
+    const { role_id, name, description, precidence, ordr } = req.body;
+
+    // Get the role from the database
+    const role = await getRole(role_id);
+
+    // Check if the role exists
+    if (!role || role.length === 0) {
+      return res.status(404).json({
+        status: "404",
+        message: `Role with ID ${role_id.toUpperCase()} not found`,
+        data: null,
+      });
+    }
+
+    // Prepare updated role data
+    const updatedRoleData = {
+      name: name || role[0].name,
+      description: description || role[0].description,
+      precidence: precidence || role[0].precidence,
+      ordr: ordr || role[0].ordr,
+      updated_at: new Date(),
+    };
+
+    // Update role in the database
+    const updatedRole = await db.oneOrNone(
+      "UPDATE roles SET name = $1, description = $2, precidence = $3, ordr = $4 WHERE role_id = $5 RETURNING *",
+      [
+        updatedRoleData.name.toUpperCase(),
+        updatedRoleData.description,
+        updatedRoleData.precidence,
+        updatedRoleData.ordr,
+        role_id.toUpperCase(),
+      ]
+    );
+
+    if (updatedRole) {
+      return res.status(200).json({
+        status: "200",
+        message: "Role updated successfully",
+        data: updatedRole,
+      });
+    } else {
+      return res.status(500).json({
+        status: "500",
+        message: "Unable to update role",
+        data: null,
+      });
+    }
+  } catch (error) {
+    logger.exception(error);
+    return res.status(500).json({
+      status: "500",
+      message: "Internal Server Error",
+      data: null,
+    });
+  }
+}
+
+// Delete Role API
+async function deleteRoleApi(req, res) {
+  try {
+    const { role_id } = req.body;
+
+    // Delete role from the database
+    const deletedRole = await db.oneOrNone(
+      "DELETE FROM roles WHERE role_id = $1 RETURNING *",
+      [role_id.toUpperCase()]
+    );
+
+    if (deletedRole) {
+      return res.status(200).json({
+        status: "200",
+        message: "Role deleted successfully",
+        data: deletedRole,
+      });
+    } else {
+      return res.status(404).json({
+        status: "404",
+        message: `Role with ID ${role_id.toUpperCase()} not found`,
+        data: null,
+      });
+    }
+  } catch (error) {
+    logger.exception(error);
+    return res.status(500).json({
+      status: "500",
+      message: "Unable to delete role",
+      data: null,
+    });
+  }
+}
+
+async function getRole(roleID) {
   const role = await db.query("SELECT * FROM ROLES WHERE ROLE_ID = $1", [
     roleID,
   ]);
@@ -282,8 +377,10 @@ async function logoutApi(req, res) {
 }
 
 module.exports = {
-  createUserApi,
   createRoleApi,
+  editRoleApi,
+  deleteRoleApi,
+  createUserApi,
   loginApi,
   logoutApi,
 };
