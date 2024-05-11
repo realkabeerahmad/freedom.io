@@ -1,9 +1,14 @@
 @keyframes rotate {
   0% {
     transform: rotate(0deg);
+    border-bottom-color: #00b4ff;
+  }
+  50% {
+    border-bottom-color: #00b4ff;
   }
   100% {
     transform: rotate(360deg);
+    border-bottom-color: #00b4ff;
   }
 }
 
@@ -30,7 +35,15 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 10px solid white;
   border-bottom: 10px solid green;
-  border-radius: 100%;
-  animation: rotate 2s infinite;
+  border-radius: 50%;
+  animation: rotate 2s infinite ease-in-out;
+}
+
+.spinner-inner {
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  /* background-color: #00b4ff; */
 }

@@ -1,0 +1,42 @@
+const nodemailer = require("nodemailer");
+
+// Function to send email
+async function sendEmail(userEmail, userName, templateId) {
+  try {
+    // Retrieve email template from the database
+    const template = await getTemplateFromDB(templateId);
+
+    // Replace placeholders with actual user's name
+    const emailContent = template.html.replace(/\$user_name/g, userName);
+
+    // Create Nodemailer transporter
+    let transporter = nodemailer.createTransport({
+      // Your email service configuration
+      // For example, for Gmail:
+      service: "gmail",
+      auth: {
+        user: "your_email@gmail.com",
+        pass: "your_password",
+      },
+    });
+
+    // Send email
+    let info = await transporter.sendMail({
+      from: "your_email@gmail.com",
+      to: userEmail,
+      subject: template.subject,
+      html: emailContent,
+    });
+
+    console.log("Email sent: " + info.response);
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+}
+
+// Example usage:
+const userEmail = "recipient@example.com";
+const userName = "John Doe";
+const templateId = "PROMO_1";
+
+sendEmail(userEmail, userName, templateId);
